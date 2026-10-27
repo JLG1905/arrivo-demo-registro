@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Demo · Registro de viajeros | Arrivo IA</title>
+<style>
+@font-face { font-family: "Manrope"; src: url("fonts/manrope-latin-wght-normal.woff2") format("woff2"); font-weight: 200 800; font-display: swap; }
+@font-face { font-family: "Inter"; src: url("fonts/inter-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+:root { --navy: #0B2447; --blue: #2563EB; --terra: #D97757; --ink: #1b2a41; --muted: #5b6b85; --line: #e3e9f3; --bg: #f4f6fb; --ok: #1a8d5f; }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { font-family: "Inter", system-ui, sans-serif; color: var(--ink); background: var(--bg); font-size: 14px; }
+h1, h2, h3, .brand { font-family: "Manrope", "Inter", sans-serif; }
+.app { display: grid; grid-template-columns: minmax(380px, 520px) 1fr; height: 100%; }
+/* ---------- Panel del gestor ---------- */
+.panel { background: #fff; border-right: 1px solid var(--line); overflow-y: auto; padding: 18px 20px 28px; }
+.brand { font-weight: 800; font-size: 20px; color: var(--navy); letter-spacing: -.01em; }
+.brand i { color: var(--terra); font-style: normal; }
+.sub { color: var(--muted); font-size: 13px; margin: 2px 0 14px; }
+.aviso { background: #fff4ec; border: 1px solid var(--terra); color: #7a3a22; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; margin-bottom: 14px; }
+.card { border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+.card h2 { margin: 0 0 10px; font-size: 14px; color: var(--navy); text-transform: uppercase; letter-spacing: .05em; }
+label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 8px 0 3px; }
+input[type=text], input[type=date], select { width: 100%; padding: 9px 10px; border: 1px solid #cfd8e6; border-radius: 8px; font: inherit; background: #fff; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+button { font: inherit; cursor: pointer; border-radius: 8px; border: 0; padding: 10px 14px; font-weight: 700; }
+.btn-main { background: var(--blue); color: #fff; width: 100%; margin-top: 12px; }
+.btn-main:disabled { opacity: .55; cursor: wait; }
+.btn-ghost { background: #fff; color: var(--navy); border: 1px solid #cfd8e6; }
+.btn-danger { background: #fff; color: #b3402a; border: 1px solid #e7b7ab; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.chip { display: inline-block; padding: 3px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; color: #fff; background: var(--blue); }
+.chip.aplazada { background: #8a6d1d; } .chip.completa, .chip.entregada { background: var(--ok); } .chip.escalada { background: #b3402a; }
+.kv { color: var(--muted); font-size: 13px; margin-top: 6px; }
+.alerta { background: #fdecea; border: 1px solid #e7a99f; color: #7a1f12; padding: 9px 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; }
+.okbox { background: #e9f7f0; border: 1px solid #a7dcc3; color: #11583a; padding: 9px 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; }
+.traveler { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
+.traveler > summary { cursor: pointer; padding: 9px 12px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; list-style: none; background: #f8faff; }
+.traveler > summary::-webkit-details-marker { display: none; }
+.bar { height: 5px; background: #e6ebf3; border-radius: 3px; margin: 0 12px 8px; overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--blue); transition: width .4s; }
+.fields { padding: 4px 12px 10px; }
+.f { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px dashed #e3e9f3; font-size: 13px; }
+.f .k { color: var(--muted); } .f .v { font-weight: 600; text-align: right; word-break: break-word; }
+.f.pend .v { color: #aab6ca; font-weight: 400; }
+.qr { display: flex; gap: 12px; align-items: center; }
+.qr svg { width: 120px; height: 120px; flex: none; border: 1px solid var(--line); border-radius: 8px; padding: 4px; background: #fff; }
+.qr p { margin: 0; font-size: 12px; color: var(--muted); }
+.hidden { display: none !important; }
+/* ---------- Móvil con chat ---------- */
+.stage { display: flex; align-items: center; justify-content: center; padding: 18px; background: radial-gradient(circle at 30% 20%, #e7edfb, #d8e2f6); overflow: hidden; }
+.phone { width: min(390px, 100%); height: min(780px, 100%); background: #111; border-radius: 38px; padding: 10px; box-shadow: 0 24px 60px rgba(11,36,71,.35); }
+.screen { background: #ECE5DD; border-radius: 30px; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.wa-head { background: #075E54; color: #fff; display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+.avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--terra); display: grid; place-items: center; font-weight: 800; font-family: "Manrope"; }
+.wa-head .n { font-weight: 700; line-height: 1.1; } .wa-head .s { font-size: 12px; opacity: .85; }
+.notice { background: #FFF3C4; color: #5c4a00; text-align: center; font-size: 11.5px; padding: 6px 10px; }
+.msgs { flex: 1; overflow-y: auto; padding: 12px 10px; display: flex; flex-direction: column; gap: 6px;
+  background-image: radial-gradient(rgba(0,0,0,.035) 1px, transparent 1px); background-size: 14px 14px; }
+.b { max-width: 82%; padding: 7px 10px 5px; border-radius: 9px; font-size: 14.5px; line-height: 1.35; white-space: pre-wrap; word-wrap: break-word; box-shadow: 0 1px 1px rgba(0,0,0,.12); }
+.b.in { background: #fff; align-self: flex-start; border-top-left-radius: 2px; }
+.b.out { background: #DCF8C6; align-self: flex-end; border-top-right-radius: 2px; }
+.b.pending { opacity: .6; }
+.b .t { display: block; text-align: right; font-size: 10.5px; color: #7b8794; margin-top: 2px; }
+.typing { align-self: flex-start; background: #fff; border-radius: 9px; padding: 8px 12px; color: #7b8794; font-size: 13px; }
+.sys { align-self: center; background: #e1f2fb; color: #4a5a6a; font-size: 12px; padding: 4px 10px; border-radius: 8px; text-align: center; max-width: 90%; }
+.wa-input { display: flex; gap: 8px; padding: 8px; background: #f0f0f0; }
+.wa-input input { flex: 1; border: 0; border-radius: 22px; padding: 11px 14px; font: inherit; font-size: 15px; }
+.wa-input button { background: #128C7E; color: #fff; border-radius: 50%; width: 44px; height: 44px; padding: 0; font-size: 18px; }
+.wa-input button:disabled, .wa-input input:disabled { opacity: .5; }
+.lock { max-width: 420px; margin: 20vh auto; text-align: center; color: var(--muted); padding: 20px; }
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--navy); color: #fff; padding: 9px 16px; border-radius: 10px; font-size: 13px; z-index: 10; }
+/* Móvil: solo el chat */
+@media (max-width: 820px) {
+  .app { display: block; }
+  .panel { display: none; }
+  .stage { height: 100dvh; padding: 0; background: #ECE5DD; }
+  .phone { width: 100%; height: 100%; padding: 0; border-radius: 0; background: none; box-shadow: none; }
+  .screen { border-radius: 0; }
+}
+</style>
+</head>
+<body>
+<div id="lock" class="lock hidden">
+  <h2 class="brand">Arrivo <i>IA</i></h2>
+  <p>Falta la clave de la demo. Abre el enlace completo que te han pasado (o escanea el código QR del panel).</p>
+</div>
+
+<div id="app" class="app hidden">
+  <aside class="panel" id="panel">
+    <div class="brand">Arrivo <i>IA</i></div>
+    <div class="sub">Registro de viajeros · vista de quien gestiona</div>
+    <div class="aviso">Usa datos inventados. Esto es una demostración.</div>
+
+    <section class="card" id="card-form">
+      <h2>1 · Entra una reserva</h2>
+      <label for="f-gestora">Nombre de la gestora</label>
+      <input id="f-gestora" type="text" value="Llevant Homes" maxlength="60">
+      <div class="row2">
+        <div><label for="f-huesped">Nombre del huésped (ficticio)</label><input id="f-huesped" type="text" value="Anna" maxlength="60"></div>
+        <div><label for="f-idioma">Idioma de la reserva</label>
+          <select id="f-idioma"><option value="es">Español</option><option value="en">English</option><option value="de">Deutsch</option></select></div>
+      </div>
+      <div class="row2">
+        <div><label for="f-vivienda">Vivienda</label><input id="f-vivienda" type="text" value="Casa Llevant" maxlength="60"></div>
+        <div><label for="f-llegada">Llegada</label><input id="f-llegada" type="date"></div>
+      </div>
+      <button class="btn-main" id="btn-alta">Entrar reserva</button>
+    </section>
+
+    <section class="card hidden" id="card-estado">
+      <h2>2 · Estado de la conversación</h2>
+      <div><span class="chip" id="chip">En curso</span> <span id="chip-extra" class="kv"></span></div>
+      <div class="kv" id="kv-reserva"></div>
+      <div class="kv" id="kv-recordatorios"></div>
+      <div id="avisos"></div>
+      <div id="ficha"></div>
+      <div class="btns">
+        <button class="btn-ghost" id="btn-dia">Simular que pasa un día</button>
+        <button class="btn-danger" id="btn-reiniciar">Reiniciar demo</button>
+      </div>
+    </section>
+
+    <section class="card hidden" id="card-datos">
+      <h2>3 · Datos que se van recogiendo</h2>
+      <div class="kv" id="reserva-campos"></div>
+      <div id="viajeros" style="margin-top:8px"></div>
+    </section>
+
+    <section class="card hidden" id="card-qr">
+      <h2>Prueba desde el móvil</h2>
+      <div class="qr"><div id="qr"></div><p>Escanea el código con el móvil para escribir como si fueras el huésped. El enlace lleva la clave de la demo: no lo compartas.</p></div>
+    </section>
+  </aside>
+
+  <main class="stage">
+    <div class="phone"><div class="screen">
+      <div class="wa-head">
+        <div class="avatar" id="avatar">L</div>
+        <div><div class="n" id="chat-nombre">Lia · Llevant Homes</div><div class="s" id="chat-estado">en línea</div></div>
+      </div>
+      <div class="notice">Usa datos inventados</div>
+      <div class="msgs" id="msgs"><div class="sys" id="vacio">Aquí aparecerá la conversación con el huésped.</div></div>
+      <form class="wa-input" id="form-msg" autocomplete="off">
+        <input id="in-msg" type="text" placeholder="Escribe un mensaje" maxlength="1500" disabled>
+        <button type="submit" id="btn-send" aria-label="Enviar" disabled>&#10148;</button>
+      </form>
+    </div></div>
+  </main>
+</div>
+
+<script src="qrcode.js"></script>
+<script>
+(function () {
+  'use strict';
+  // === Configuración (la única línea que cambia si cambia el servidor) ===
+  var API = 'https://arrivo-ia-lab-n8n.t7hnzd.easypanel.host/webhook/demo-registro';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var S = { token: null, conv: null, lastId: 0, timer: null, busy: false, pendientes: 0, vacioQuitado: false, estado: null };
+
+  // --- Clave de la demo: viene en el enlace (#k=...) y se guarda solo en esta pestaña ---
+  var h = new URLSearchParams(location.hash.slice(1));
+  S.token = h.get('k') || sessionStorage.getItem('demo_k');
+  S.conv = h.get('c') || sessionStorage.getItem('demo_c');
+  if (h.get('k')) sessionStorage.setItem('demo_k', h.get('k'));
+  history.replaceState(null, '', location.pathname + (S.conv ? '#c=' + S.conv : ''));
+  if (!S.token) { $('lock').classList.remove('hidden'); return; }
+  $('app').classList.remove('hidden');
+
+  // fecha de llegada por defecto: dentro de 3 semanas
+  var d = new Date(); d.setDate(d.getDate() + 21); $('f-llegada').value = d.toISOString().slice(0, 10);
+
+  function toast(t) { var e = document.createElement('div'); e.className = 'toast'; e.textContent = t; document.body.appendChild(e); setTimeout(function () { e.remove(); }, 3800); }
+  function api(accion, cuerpo) {
+    return fetch(API + '/' + accion, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Demo-Token': S.token }, body: JSON.stringify(cuerpo || {}) })
+      .then(function (r) { if (r.status === 401 || r.status === 403) throw new Error('clave'); if (!r.ok) throw new Error('http ' + r.status); return r.json(); });
+  }
+  function hora(iso) { try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } }
+  function bubble(rol, texto, iso, pending) {
+    if (!S.vacioQuitado) { var v = $('vacio'); if (v) v.remove(); S.vacioQuitado = true; }
+    var b = document.createElement('div'); b.className = 'b ' + (rol === 'huesped' ? 'out' : 'in') + (pending ? ' pending' : '');
+    b.textContent = texto; if (pending) b.setAttribute('data-pending', '1');
+    var t = document.createElement('span'); t.className = 't'; t.textContent = pending ? '' : hora(iso); b.appendChild(t);
+    var typing = $('typing'); if (typing) $('msgs').insertBefore(b, typing); else $('msgs').appendChild(b);
+    $('msgs').scrollTop = $('msgs').scrollHeight;
+  }
+  function setTyping(on) {
+    var e = $('typing');
+    if (on && !e) { e = document.createElement('div'); e.id = 'typing'; e.className = 'typing'; e.textContent = 'escribiendo…'; $('msgs').appendChild(e); $('msgs').scrollTop = $('msgs').scrollHeight; }
+    if (!on && e) e.remove();
+    $('chat-estado').textContent = on ? 'escribiendo…' : 'en línea';
+  }
+  function habilitarChat(on) { $('in-msg').disabled = !on; $('btn-send').disabled = !on; }
+
+  var ETQ = { en_curso: 'En curso', aplazada: 'Aplazada', completa: 'Completa', escalada: 'Necesita a una persona', entregada: 'Ficha entregada' };
+  function pintarEstado(e) {
+    S.estado = e.estado;
+    $('card-estado').classList.remove('hidden'); $('card-datos').classList.remove('hidden'); $('card-qr').classList.remove('hidden'); $('card-form').classList.add('hidden');
+    var chip = $('chip'); chip.textContent = ETQ[e.estado] || e.estado; chip.className = 'chip ' + e.estado;
+    $('chip-extra').textContent = e.estado === 'aplazada' && e.reanudar_en_seg !== null ? 'Se retoma en ' + e.reanudar_en_seg + ' s' : '';
+    $('kv-reserva').textContent = e.reserva.vivienda + ' · ' + e.reserva.nombre_titular + ' · llegada ' + e.reserva.fecha_entrada + ' · idioma ' + String(e.idioma).toUpperCase();
+    $('kv-recordatorios').textContent = 'Recordatorios enviados: ' + e.recordatorios_enviados + ' de 3';
+    $('chat-nombre').textContent = (e.reserva.asistente || 'Lia') + ' · ' + e.reserva.gestora;
+    $('avatar').textContent = (e.reserva.asistente || 'L').charAt(0);
+    var av = $('avisos'); av.textContent = '';
+    (e.avisos || []).forEach(function (a) { var x = document.createElement('div'); x.className = 'alerta'; x.textContent = 'Aviso para el equipo: ' + a.motivo; av.appendChild(x); });
+    if (e.estado === 'escalada') { var y = document.createElement('div'); y.className = 'alerta'; y.textContent = 'El huésped prefiere hablar con una persona: hay que contactarle.'; av.appendChild(y); }
+    var fi = $('ficha'); fi.textContent = '';
+    if (e.ficha_email) { var z = document.createElement('div'); z.className = /^error/.test(e.ficha_email) ? 'alerta' : 'okbox';
+      z.textContent = /^error/.test(e.ficha_email) ? 'La ficha está lista, pero el correo no se ha podido enviar. Revisa la configuración del envío.' : 'Ficha para el gestor ' + e.ficha_email + '. Nada se ha enviado a SES.Hospedajes.'; fi.appendChild(z); }
+    // datos
+    var rc = e.reserva_campos.map(function (c) { return c.etiqueta + ': ' + (c.hecho ? c.valor : '—'); }).join('  ·  '); $('reserva-campos').textContent = rc;
+    var cont = $('viajeros'); var abiertos = {}; Array.prototype.forEach.call(cont.querySelectorAll('details'), function (dt) { abiertos[dt.getAttribute('data-n')] = dt.open; });
+    cont.textContent = '';
+    e.viajeros.forEach(function (v) {
+      var dt = document.createElement('details'); dt.className = 'traveler'; dt.setAttribute('data-n', v.n);
+      dt.open = abiertos[v.n] !== undefined ? abiertos[v.n] : (v.hechos > 0 && !v.completo);
+      var sm = document.createElement('summary'); var l = document.createElement('span'); l.textContent = 'Viajero ' + v.n + (v.nombre ? ' · ' + v.nombre : ''); var r = document.createElement('span'); r.textContent = v.hechos + '/' + v.total + (v.completo ? ' ✔' : ''); sm.appendChild(l); sm.appendChild(r); dt.appendChild(sm);
+      var bar = document.createElement('div'); bar.className = 'bar'; var sp = document.createElement('span'); sp.style.width = (v.total ? Math.round(100 * v.hechos / v.total) : 0) + '%'; bar.appendChild(sp); dt.appendChild(bar);
+      var fl = document.createElement('div'); fl.className = 'fields';
+      v.campos.forEach(function (c) { var f = document.createElement('div'); f.className = 'f' + (c.hecho ? '' : ' pend'); var k = document.createElement('span'); k.className = 'k'; k.textContent = c.etiqueta; var vv = document.createElement('span'); vv.className = 'v'; vv.textContent = c.hecho ? (c.valor === '' ? '(no tiene)' : c.valor) : 'pendiente'; f.appendChild(k); f.appendChild(vv); fl.appendChild(f); });
+      dt.appendChild(fl); cont.appendChild(dt);
+    });
+    // chat: se puede escribir mientras la conversación existe
+    habilitarChat(true);
+    setTyping(!!e.procesando);
+  }
+  function pintarQR() {
+    try {
+      var url = location.origin + location.pathname + '#k=' + encodeURIComponent(S.token) + '&c=' + encodeURIComponent(S.conv);
+      var qr = qrcode(0, 'M'); qr.addData(url); qr.make(); $('qr').innerHTML = qr.createSvgTag(4, 2);
+    } catch (err) { $('qr').textContent = 'No se pudo generar el QR'; }
+  }
+  function resetUI() {
+    clearTimeout(S.timer); S.conv = null; S.lastId = 0; S.pendientes = 0; S.estado = null; sessionStorage.removeItem('demo_c');
+    history.replaceState(null, '', location.pathname);
+    $('msgs').textContent = ''; var v = document.createElement('div'); v.className = 'sys'; v.id = 'vacio'; v.textContent = 'Aquí aparecerá la conversación con el huésped.'; $('msgs').appendChild(v); S.vacioQuitado = false;
+    $('card-form').classList.remove('hidden'); ['card-estado', 'card-datos', 'card-qr'].forEach(function (i) { $(i).classList.add('hidden'); });
+    habilitarChat(false); $('chat-nombre').textContent = 'Lia · ' + ($('f-gestora').value || 'Llevant Homes'); $('chat-estado').textContent = 'en línea';
+  }
+
+  function sondear() {
+    if (!S.conv) return;
+    api('estado', { conversacion_id: S.conv, desde_id: S.lastId }).then(function (e) {
+      if (!e.existe) { toast('La conversación ya no existe.'); resetUI(); return; }
+      (e.mensajes || []).forEach(function (m) {
+        if (m.rol === 'huesped') { var p = $('msgs').querySelector('[data-pending]'); if (p) { p.remove(); } }
+        bubble(m.rol, m.texto, m.at, false);
+      });
+      if (e.ultimo_id) S.lastId = e.ultimo_id;
+      pintarEstado(e);
+      S.timer = setTimeout(sondear, 2000);
+    }).catch(function (err) {
+      if (err.message === 'clave') { toast('La clave de la demo no es válida.'); return; }
+      S.timer = setTimeout(sondear, 4000);
+    });
+  }
+  function empezar(id) {
+    S.conv = id; sessionStorage.setItem('demo_c', id); history.replaceState(null, '', location.pathname + '#c=' + id);
+    pintarQR(); setTyping(true); sondear();
+  }
+
+  $('btn-alta').addEventListener('click', function () {
+    var b = $('btn-alta'); b.disabled = true; b.textContent = 'Entrando…';
+    api('alta', { nombre_gestora: $('f-gestora').value, nombre_titular: $('f-huesped').value, idioma: $('f-idioma').value, vivienda: $('f-vivienda').value, localidad: 'Mallorca', fecha_entrada: $('f-llegada').value })
+      .then(function (r) { if (!r.ok) { toast(r.mensaje || 'No se pudo entrar la reserva.'); return; } empezar(r.conversacion_id); })
+      .catch(function (err) { toast(err.message === 'clave' ? 'La clave de la demo no es válida.' : 'No se pudo conectar con el servidor.'); })
+      .then(function () { b.disabled = false; b.textContent = 'Entrar reserva'; });
+  });
+  $('form-msg').addEventListener('submit', function (ev) {
+    ev.preventDefault(); var t = $('in-msg').value.trim(); if (!t || !S.conv) return;
+    $('in-msg').value = ''; bubble('huesped', t, null, true); setTyping(true);
+    api('mensaje', { conversacion_id: S.conv, mensaje: t }).then(function (r) {
+      if (!r.ok) { toast(r.mensaje || 'No se pudo enviar.'); var p = $('msgs').querySelector('[data-pending]'); if (p) p.remove(); setTyping(false); }
+    }).catch(function () { toast('No se pudo enviar el mensaje.'); var p = $('msgs').querySelector('[data-pending]'); if (p) p.remove(); setTyping(false); });
+  });
+  $('btn-dia').addEventListener('click', function () { if (!S.conv) return; api('dia', { conversacion_id: S.conv }).then(function () { toast('Ha pasado un día: el siguiente aviso saldrá en unos segundos.'); }).catch(function () { toast('No se pudo adelantar el reloj.'); }); });
+  $('btn-reiniciar').addEventListener('click', function () {
+    if (!S.conv) return; if (!confirm('Se borrará la conversación y todos sus datos. ¿Reiniciar la demo?')) return;
+    api('reiniciar', { conversacion_id: S.conv }).then(function () { resetUI(); toast('Demo reiniciada: todo borrado.'); }).catch(function () { toast('No se pudo reiniciar.'); });
+  });
+  $('f-idioma').addEventListener('change', function () { });
+
+  if (S.conv) { pintarQR(); sondear(); } else { habilitarChat(false); }
+})();
+</script>
+</body>
+</html>
