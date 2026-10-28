@@ -48,10 +48,14 @@ button { font: inherit; cursor: pointer; border-radius: 8px; border: 0; padding:
 .qr { display: flex; gap: 12px; align-items: center; }
 .qr svg { width: 120px; height: 120px; flex: none; border: 1px solid var(--line); border-radius: 8px; padding: 4px; background: #fff; }
 .qr p { margin: 0; font-size: 12px; color: var(--muted); }
+.quien { padding: 0 12px 6px; font-size: 12px; color: var(--muted); }
+.tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; justify-content: center; }
+.tab { background: #fff; color: var(--navy); border: 1px solid #cfd8e6; border-radius: 999px; padding: 6px 14px; font-size: 13px; }
+.tab.on { background: var(--navy); color: #fff; border-color: var(--navy); }
 .hidden { display: none !important; }
 /* ---------- Móvil con chat ---------- */
-.stage { display: flex; align-items: center; justify-content: center; padding: 18px; background: radial-gradient(circle at 30% 20%, #e7edfb, #d8e2f6); overflow: hidden; }
-.phone { width: min(390px, 100%); height: min(780px, 100%); background: #111; border-radius: 38px; padding: 10px; box-shadow: 0 24px 60px rgba(11,36,71,.35); }
+.stage { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px; background: radial-gradient(circle at 30% 20%, #e7edfb, #d8e2f6); overflow: hidden; }
+.phone { width: min(390px, 100%); height: min(760px, 100%); flex: 0 1 auto; background: #111; border-radius: 38px; padding: 10px; box-shadow: 0 24px 60px rgba(11,36,71,.35); }
 .screen { background: #ECE5DD; border-radius: 30px; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
 .wa-head { background: #075E54; color: #fff; display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
 .avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--terra); display: grid; place-items: center; font-weight: 800; font-family: "Manrope"; }
@@ -77,6 +81,7 @@ button { font: inherit; cursor: pointer; border-radius: 8px; border: 0; padding:
   .app { display: block; }
   .panel { display: none; }
   .stage { height: 100dvh; padding: 0; background: #ECE5DD; }
+  .tabs { display: none; }
   .phone { width: 100%; height: 100%; padding: 0; border-radius: 0; background: none; box-shadow: none; }
   .screen { border-radius: 0; }
 }
@@ -131,11 +136,12 @@ button { font: inherit; cursor: pointer; border-radius: 8px; border: 0; padding:
 
     <section class="card hidden" id="card-qr">
       <h2>Prueba desde el móvil</h2>
-      <div class="qr"><div id="qr"></div><p>Escanea el código con el móvil para escribir como si fueras el huésped. El enlace lleva la clave de la demo: no lo compartas.</p></div>
+      <div class="qr"><div id="qr"></div><p><b id="qr-quien"></b><br>Escanea el código con el móvil para escribir como si fueras esa persona. El enlace lleva la clave de la demo: no lo compartas.</p></div>
     </section>
   </aside>
 
   <main class="stage">
+    <div class="tabs hidden" id="tabs"></div>
     <div class="phone"><div class="screen">
       <div class="wa-head">
         <div class="avatar" id="avatar">L</div>
@@ -159,18 +165,18 @@ button { font: inherit; cursor: pointer; border-radius: 8px; border: 0; padding:
   var API = 'https://arrivo-ia-lab-n8n.t7hnzd.easypanel.host/webhook/demo-registro';
 
   var $ = function (id) { return document.getElementById(id); };
-  var S = { token: null, conv: null, lastId: 0, timer: null, busy: false, pendientes: 0, vacioQuitado: false, estado: null };
+  // chats: una conversación por persona (titular y, si los hay, acompañantes). El primero es siempre el titular.
+  var S = { token: null, main: null, activo: null, chats: {}, orden: [], timer: null, estadoMain: null };
 
   // --- Clave de la demo: viene en el enlace (#k=...) y se guarda solo en esta pestaña ---
   var h = new URLSearchParams(location.hash.slice(1));
   S.token = h.get('k') || sessionStorage.getItem('demo_k');
-  S.conv = h.get('c') || sessionStorage.getItem('demo_c');
+  S.main = h.get('c') || sessionStorage.getItem('demo_c');
   if (h.get('k')) sessionStorage.setItem('demo_k', h.get('k'));
-  history.replaceState(null, '', location.pathname + (S.conv ? '#c=' + S.conv : ''));
+  history.replaceState(null, '', location.pathname + (S.main ? '#c=' + S.main : ''));
   if (!S.token) { $('lock').classList.remove('hidden'); return; }
   $('app').classList.remove('hidden');
 
-  // fecha de llegada por defecto: dentro de 3 semanas
   var d = new Date(); d.setDate(d.getDate() + 21); $('f-llegada').value = d.toISOString().slice(0, 10);
 
   function toast(t) { var e = document.createElement('div'); e.className = 'toast'; e.textContent = t; document.body.appendChild(e); setTimeout(function () { e.remove(); }, 3800); }
@@ -179,112 +185,149 @@ button { font: inherit; cursor: pointer; border-radius: 8px; border: 0; padding:
       .then(function (r) { if (r.status === 401 || r.status === 403) throw new Error('clave'); if (!r.ok) throw new Error('http ' + r.status); return r.json(); });
   }
   function hora(iso) { try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } }
-  function bubble(rol, texto, iso, pending) {
-    if (!S.vacioQuitado) { var v = $('vacio'); if (v) v.remove(); S.vacioQuitado = true; }
-    var b = document.createElement('div'); b.className = 'b ' + (rol === 'huesped' ? 'out' : 'in') + (pending ? ' pending' : '');
-    b.textContent = texto; if (pending) b.setAttribute('data-pending', '1');
-    var t = document.createElement('span'); t.className = 't'; t.textContent = pending ? '' : hora(iso); b.appendChild(t);
-    var typing = $('typing'); if (typing) $('msgs').insertBefore(b, typing); else $('msgs').appendChild(b);
-    $('msgs').scrollTop = $('msgs').scrollHeight;
-  }
-  function setTyping(on) {
-    var e = $('typing');
-    if (on && !e) { e = document.createElement('div'); e.id = 'typing'; e.className = 'typing'; e.textContent = 'escribiendo…'; $('msgs').appendChild(e); $('msgs').scrollTop = $('msgs').scrollHeight; }
-    if (!on && e) e.remove();
-    $('chat-estado').textContent = on ? 'escribiendo…' : 'en línea';
-  }
   function habilitarChat(on) { $('in-msg').disabled = !on; $('btn-send').disabled = !on; }
+
+  // ---------- Chats ----------
+  function nuevoChat(id, nombre, rol) { if (!S.chats[id]) { S.chats[id] = { id: id, nombre: nombre, rol: rol, lastId: 0, msgs: [], pend: [], procesando: false, estado: 'en_curso', asistente: 'Lia', gestora: '' }; S.orden.push(id); } return S.chats[id]; }
+  function pintarTabs() {
+    var t = $('tabs'); t.textContent = '';
+    if (S.orden.length < 2) { t.classList.add('hidden'); return; }
+    t.classList.remove('hidden');
+    S.orden.forEach(function (id) {
+      var c = S.chats[id]; var b = document.createElement('button'); b.className = 'tab' + (id === S.activo ? ' on' : ''); b.type = 'button';
+      b.textContent = c.nombre + (c.rol === 'titular' ? ' (titular)' : ''); b.addEventListener('click', function () { activar(id); }); t.appendChild(b);
+    });
+  }
+  function pintarChat() {
+    var c = S.chats[S.activo]; var box = $('msgs'); if (!c) return;
+    var cerca = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+    box.textContent = '';
+    if (!c.msgs.length && !c.pend.length) { var v = document.createElement('div'); v.className = 'sys'; v.textContent = 'Aquí aparecerá la conversación con el huésped.'; box.appendChild(v); }
+    c.msgs.forEach(function (m) { box.appendChild(burbuja(m.rol, m.texto, m.at, false)); });
+    c.pend.forEach(function (t) { box.appendChild(burbuja('huesped', t, null, true)); });
+    if (c.procesando || c.pend.length) { var e = document.createElement('div'); e.className = 'typing'; e.textContent = 'escribiendo…'; box.appendChild(e); }
+    if (cerca || true) box.scrollTop = box.scrollHeight;
+    $('chat-nombre').textContent = (c.asistente || 'Lia') + ' · ' + (c.gestora || ($('f-gestora').value || 'Llevant Homes'));
+    $('avatar').textContent = (c.asistente || 'L').charAt(0);
+    $('chat-estado').textContent = (c.procesando || c.pend.length) ? 'escribiendo…' : 'en línea';
+    habilitarChat(true);
+  }
+  function burbuja(rol, texto, iso, pending) {
+    var b = document.createElement('div'); b.className = 'b ' + (rol === 'huesped' ? 'out' : 'in') + (pending ? ' pending' : '');
+    b.textContent = texto; var t = document.createElement('span'); t.className = 't'; t.textContent = pending ? '' : hora(iso); b.appendChild(t); return b;
+  }
+  function activar(id) { S.activo = id; pintarTabs(); pintarChat(); pintarQR(); }
 
   var ETQ = { en_curso: 'En curso', aplazada: 'Aplazada', completa: 'Completa', escalada: 'Necesita a una persona', entregada: 'Ficha entregada' };
   function pintarEstado(e) {
-    S.estado = e.estado;
+    S.estadoMain = e.estado;
     $('card-estado').classList.remove('hidden'); $('card-datos').classList.remove('hidden'); $('card-qr').classList.remove('hidden'); $('card-form').classList.add('hidden');
-    var chip = $('chip'); chip.textContent = ETQ[e.estado] || e.estado; chip.className = 'chip ' + e.estado;
+    var falta = (e.falta_acompanantes || []);
+    var chip = $('chip'); var etiqueta = ETQ[e.estado] || e.estado;
+    if (e.estado === 'completa' && falta.length) etiqueta = 'Titular completo · falta ' + falta.join(', ');
+    chip.textContent = etiqueta; chip.className = 'chip ' + (e.estado === 'completa' && falta.length ? 'aplazada' : e.estado);
     $('chip-extra').textContent = e.estado === 'aplazada' && e.reanudar_en_seg !== null ? 'Se retoma en ' + e.reanudar_en_seg + ' s' : '';
     $('kv-reserva').textContent = e.reserva.vivienda + ' · ' + e.reserva.nombre_titular + ' · llegada ' + e.reserva.fecha_entrada + ' · idioma ' + String(e.idioma).toUpperCase();
-    $('kv-recordatorios').textContent = 'Recordatorios enviados: ' + e.recordatorios_enviados + ' de 3';
-    $('chat-nombre').textContent = (e.reserva.asistente || 'Lia') + ' · ' + e.reserva.gestora;
-    $('avatar').textContent = (e.reserva.asistente || 'L').charAt(0);
+    $('kv-recordatorios').textContent = 'Recordatorios enviados a esta persona: ' + e.recordatorios_enviados + ' de 3';
     var av = $('avisos'); av.textContent = '';
-    (e.avisos || []).forEach(function (a) { var x = document.createElement('div'); x.className = 'alerta'; x.textContent = 'Aviso para el equipo: ' + a.motivo; av.appendChild(x); });
-    if (e.estado === 'escalada') { var y = document.createElement('div'); y.className = 'alerta'; y.textContent = 'El huésped prefiere hablar con una persona: hay que contactarle.'; av.appendChild(y); }
+    (e.avisos || []).forEach(function (a) { var x = document.createElement('div'); x.className = 'alerta'; x.textContent = 'Aviso para el equipo' + (a.de && a.de !== 'titular' ? ' (' + a.de + ')' : '') + ': ' + a.motivo; av.appendChild(x); });
+    (e.conversaciones || []).forEach(function (c) { if (c.estado === 'escalada') { var y = document.createElement('div'); y.className = 'alerta'; y.textContent = (c.nombre || 'Una persona') + ' prefiere hablar con una persona del equipo: hay que contactarle.'; av.appendChild(y); } });
     var fi = $('ficha'); fi.textContent = '';
     if (e.ficha_email) { var z = document.createElement('div'); z.className = /^error/.test(e.ficha_email) ? 'alerta' : 'okbox';
       z.textContent = /^error/.test(e.ficha_email) ? 'La ficha está lista, pero el correo no se ha podido enviar. Revisa la configuración del envío.' : 'Ficha para el gestor ' + e.ficha_email + '. Nada se ha enviado a SES.Hospedajes.'; fi.appendChild(z); }
-    // datos
-    var rc = e.reserva_campos.map(function (c) { return c.etiqueta + ': ' + (c.hecho ? c.valor : '—'); }).join('  ·  '); $('reserva-campos').textContent = rc;
+    else if (falta.length) { var w = document.createElement('div'); w.className = 'kv'; w.textContent = 'La ficha se enviará cuando todos los viajeros estén completos (falta ' + falta.join(', ') + ').'; fi.appendChild(w); }
+    $('reserva-campos').textContent = e.reserva_campos.map(function (c) { return c.etiqueta + ': ' + (c.hecho ? c.valor : '—'); }).join('  ·  ');
     var cont = $('viajeros'); var abiertos = {}; Array.prototype.forEach.call(cont.querySelectorAll('details'), function (dt) { abiertos[dt.getAttribute('data-n')] = dt.open; });
     cont.textContent = '';
     e.viajeros.forEach(function (v) {
       var dt = document.createElement('details'); dt.className = 'traveler'; dt.setAttribute('data-n', v.n);
       dt.open = abiertos[v.n] !== undefined ? abiertos[v.n] : (v.hechos > 0 && !v.completo);
       var sm = document.createElement('summary'); var l = document.createElement('span'); l.textContent = 'Viajero ' + v.n + (v.nombre ? ' · ' + v.nombre : ''); var r = document.createElement('span'); r.textContent = v.hechos + '/' + v.total + (v.completo ? ' ✔' : ''); sm.appendChild(l); sm.appendChild(r); dt.appendChild(sm);
+      var q = document.createElement('div'); q.className = 'quien'; q.textContent = v.quien === 'propio' ? 'Da sus propios datos (conversación aparte)' : (v.n === 1 ? 'Da sus datos el titular' : 'Sus datos los da el titular'); dt.appendChild(q);
       var bar = document.createElement('div'); bar.className = 'bar'; var sp = document.createElement('span'); sp.style.width = (v.total ? Math.round(100 * v.hechos / v.total) : 0) + '%'; bar.appendChild(sp); dt.appendChild(bar);
       var fl = document.createElement('div'); fl.className = 'fields';
       v.campos.forEach(function (c) { var f = document.createElement('div'); f.className = 'f' + (c.hecho ? '' : ' pend'); var k = document.createElement('span'); k.className = 'k'; k.textContent = c.etiqueta; var vv = document.createElement('span'); vv.className = 'v'; vv.textContent = c.hecho ? (c.valor === '' ? '(no tiene)' : c.valor) : 'pendiente'; f.appendChild(k); f.appendChild(vv); fl.appendChild(f); });
       dt.appendChild(fl); cont.appendChild(dt);
     });
-    // chat: se puede escribir mientras la conversación existe
-    habilitarChat(true);
-    setTyping(!!e.procesando);
   }
   function pintarQR() {
     try {
-      var url = location.origin + location.pathname + '#k=' + encodeURIComponent(S.token) + '&c=' + encodeURIComponent(S.conv);
+      if (!S.activo) return;
+      var cc = S.chats[S.activo]; var key = S.activo + '|' + (cc ? cc.nombre : ''); if (S.qrKey === key) return; S.qrKey = key;
+      var url = location.origin + location.pathname + '#k=' + encodeURIComponent(S.token) + '&c=' + encodeURIComponent(S.activo);
       var qr = qrcode(0, 'M'); qr.addData(url); qr.make(); $('qr').innerHTML = qr.createSvgTag(4, 2);
+      var c = S.chats[S.activo]; $('qr-quien').textContent = c ? 'Chat de ' + c.nombre : '';
     } catch (err) { $('qr').textContent = 'No se pudo generar el QR'; }
   }
   function resetUI() {
-    clearTimeout(S.timer); S.conv = null; S.lastId = 0; S.pendientes = 0; S.estado = null; sessionStorage.removeItem('demo_c');
+    clearTimeout(S.timer); S.qrKey = null; S.main = null; S.activo = null; S.chats = {}; S.orden = []; S.estadoMain = null; sessionStorage.removeItem('demo_c');
     history.replaceState(null, '', location.pathname);
-    $('msgs').textContent = ''; var v = document.createElement('div'); v.className = 'sys'; v.id = 'vacio'; v.textContent = 'Aquí aparecerá la conversación con el huésped.'; $('msgs').appendChild(v); S.vacioQuitado = false;
+    $('msgs').textContent = ''; var v = document.createElement('div'); v.className = 'sys'; v.textContent = 'Aquí aparecerá la conversación con el huésped.'; $('msgs').appendChild(v);
     $('card-form').classList.remove('hidden'); ['card-estado', 'card-datos', 'card-qr'].forEach(function (i) { $(i).classList.add('hidden'); });
-    habilitarChat(false); $('chat-nombre').textContent = 'Lia · ' + ($('f-gestora').value || 'Llevant Homes'); $('chat-estado').textContent = 'en línea';
+    $('tabs').classList.add('hidden'); habilitarChat(false); $('chat-nombre').textContent = 'Lia · ' + ($('f-gestora').value || 'Llevant Homes'); $('chat-estado').textContent = 'en línea';
   }
 
-  function sondear() {
-    if (!S.conv) return;
-    api('estado', { conversacion_id: S.conv, desde_id: S.lastId }).then(function (e) {
-      if (!e.existe) { toast('La conversación ya no existe.'); resetUI(); return; }
-      (e.mensajes || []).forEach(function (m) {
-        if (m.rol === 'huesped') { var p = $('msgs').querySelector('[data-pending]'); if (p) { p.remove(); } }
-        bubble(m.rol, m.texto, m.at, false);
-      });
-      if (e.ultimo_id) S.lastId = e.ultimo_id;
-      pintarEstado(e);
-      S.timer = setTimeout(sondear, 2000);
-    }).catch(function (err) {
-      if (err.message === 'clave') { toast('La clave de la demo no es válida.'); return; }
-      S.timer = setTimeout(sondear, 4000);
+  // ---------- Sondeo cada 2 s: primero el titular (vista completa) y luego cada acompañante ----------
+  function sondearChat(id) {
+    var c = S.chats[id];
+    return api('estado', { conversacion_id: id, desde_id: c.lastId }).then(function (e) {
+      if (!e.existe) throw new Error('no-existe');
+      (e.mensajes || []).forEach(function (m) { if (m.rol === 'huesped' && c.pend.length) c.pend.shift(); c.msgs.push({ rol: m.rol, texto: m.texto, at: m.at }); });
+      if (e.ultimo_id) c.lastId = e.ultimo_id;
+      c.procesando = !!e.procesando; c.estado = e.estado;
+      if (e.reserva) { c.asistente = e.reserva.asistente || c.asistente; c.gestora = e.reserva.gestora || c.gestora; }
+      return e;
     });
   }
-  function empezar(id) {
-    S.conv = id; sessionStorage.setItem('demo_c', id); history.replaceState(null, '', location.pathname + '#c=' + id);
-    pintarQR(); setTyping(true); sondear();
+  function ciclo() {
+    if (!S.main) return;
+    var primero = S.chats[S.main] ? sondearChat(S.main) : Promise.reject(new Error('sin-chat'));
+    primero.then(function (e) {
+      if (e.rol === 'titular') {
+        pintarEstado(e);
+        (e.conversaciones || []).forEach(function (x) { if (x.rol === 'acompanante') { var c = nuevoChat(x.id, x.nombre || 'Acompañante', 'acompanante'); c.nombre = x.nombre || c.nombre; } else if (S.chats[x.id]) { S.chats[x.id].nombre = x.nombre || S.chats[x.id].nombre; } });
+      }
+      var otros = S.orden.filter(function (id) { return id !== S.main; });
+      return otros.reduce(function (p, id) { return p.then(function () { return sondearChat(id).catch(function () { }); }); }, Promise.resolve());
+    }).then(function () {
+      pintarTabs(); pintarChat(); pintarQR();
+      S.timer = setTimeout(ciclo, 2000);
+    }).catch(function (err) {
+      if (err.message === 'no-existe') { toast('La conversación ya no existe.'); resetUI(); return; }
+      if (err.message === 'clave') { toast('La clave de la demo no es válida.'); return; }
+      S.timer = setTimeout(ciclo, 4000);
+    });
+  }
+  function empezar(id, rolInicial) {
+    S.main = id; S.activo = id; sessionStorage.setItem('demo_c', id); history.replaceState(null, '', location.pathname + '#c=' + id);
+    var c = nuevoChat(id, rolInicial === 'acompanante' ? 'Acompañante' : ($('f-huesped').value || 'Titular'), rolInicial || 'titular');
+    c.procesando = true; pintarTabs(); pintarChat(); pintarQR(); ciclo();
   }
 
   $('btn-alta').addEventListener('click', function () {
     var b = $('btn-alta'); b.disabled = true; b.textContent = 'Entrando…';
     api('alta', { nombre_gestora: $('f-gestora').value, nombre_titular: $('f-huesped').value, idioma: $('f-idioma').value, vivienda: $('f-vivienda').value, localidad: 'Mallorca', fecha_entrada: $('f-llegada').value })
-      .then(function (r) { if (!r.ok) { toast(r.mensaje || 'No se pudo entrar la reserva.'); return; } empezar(r.conversacion_id); })
+      .then(function (r) { if (!r.ok) { toast(r.mensaje || 'No se pudo entrar la reserva.'); return; } empezar(r.conversacion_id, 'titular'); })
       .catch(function (err) { toast(err.message === 'clave' ? 'La clave de la demo no es válida.' : 'No se pudo conectar con el servidor.'); })
       .then(function () { b.disabled = false; b.textContent = 'Entrar reserva'; });
   });
   $('form-msg').addEventListener('submit', function (ev) {
-    ev.preventDefault(); var t = $('in-msg').value.trim(); if (!t || !S.conv) return;
-    $('in-msg').value = ''; bubble('huesped', t, null, true); setTyping(true);
-    api('mensaje', { conversacion_id: S.conv, mensaje: t }).then(function (r) {
-      if (!r.ok) { toast(r.mensaje || 'No se pudo enviar.'); var p = $('msgs').querySelector('[data-pending]'); if (p) p.remove(); setTyping(false); }
-    }).catch(function () { toast('No se pudo enviar el mensaje.'); var p = $('msgs').querySelector('[data-pending]'); if (p) p.remove(); setTyping(false); });
+    ev.preventDefault(); var t = $('in-msg').value.trim(); var c = S.chats[S.activo]; if (!t || !c) return;
+    $('in-msg').value = ''; c.pend.push(t); pintarChat();
+    api('mensaje', { conversacion_id: c.id, mensaje: t }).then(function (r) {
+      if (!r.ok) { toast(r.mensaje || 'No se pudo enviar.'); c.pend.pop(); pintarChat(); }
+    }).catch(function () { toast('No se pudo enviar el mensaje.'); c.pend.pop(); pintarChat(); });
   });
-  $('btn-dia').addEventListener('click', function () { if (!S.conv) return; api('dia', { conversacion_id: S.conv }).then(function () { toast('Ha pasado un día: el siguiente aviso saldrá en unos segundos.'); }).catch(function () { toast('No se pudo adelantar el reloj.'); }); });
+  $('btn-dia').addEventListener('click', function () { if (!S.activo) return; api('dia', { conversacion_id: S.activo }).then(function () { toast('Ha pasado un día: el siguiente aviso saldrá en unos segundos.'); }).catch(function () { toast('No se pudo adelantar el reloj.'); }); });
   $('btn-reiniciar').addEventListener('click', function () {
-    if (!S.conv) return; if (!confirm('Se borrará la conversación y todos sus datos. ¿Reiniciar la demo?')) return;
-    api('reiniciar', { conversacion_id: S.conv }).then(function () { resetUI(); toast('Demo reiniciada: todo borrado.'); }).catch(function () { toast('No se pudo reiniciar.'); });
+    if (!S.main) return; if (!confirm('Se borrarán las conversaciones y todos sus datos. ¿Reiniciar la demo?')) return;
+    api('reiniciar', { conversacion_id: S.main }).then(function () { resetUI(); toast('Demo reiniciada: todo borrado.'); }).catch(function () { toast('No se pudo reiniciar.'); });
   });
-  $('f-idioma').addEventListener('change', function () { });
 
-  if (S.conv) { pintarQR(); sondear(); } else { habilitarChat(false); }
+  if (S.main) {
+    // Si el enlace es el de un acompañante, el primer sondeo lo detecta (rol) y solo se muestra su chat.
+    S.activo = S.main; nuevoChat(S.main, 'Chat', 'titular'); pintarQR(); ciclo();
+  } else { habilitarChat(false); }
 })();
 </script>
 </body>
