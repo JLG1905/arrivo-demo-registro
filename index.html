@@ -205,11 +205,11 @@ button { font: inherit; cursor: pointer; border-radius: 8px; border: 0; padding:
     if (!c.msgs.length && !c.pend.length) { var v = document.createElement('div'); v.className = 'sys'; v.textContent = 'Aquí aparecerá la conversación con el huésped.'; box.appendChild(v); }
     c.msgs.forEach(function (m) { box.appendChild(burbuja(m.rol, m.texto, m.at, false)); });
     c.pend.forEach(function (t) { box.appendChild(burbuja('huesped', t, null, true)); });
-    if (c.procesando || c.pend.length) { var e = document.createElement('div'); e.className = 'typing'; e.textContent = 'escribiendo…'; box.appendChild(e); }
+    if (c.procesando) { var e = document.createElement('div'); e.className = 'typing'; e.textContent = 'escribiendo…'; box.appendChild(e); }
     if (cerca || true) box.scrollTop = box.scrollHeight;
     $('chat-nombre').textContent = (c.asistente || 'Lia') + ' · ' + (c.gestora || ($('f-gestora').value || 'Llevant Homes'));
     $('avatar').textContent = (c.asistente || 'L').charAt(0);
-    $('chat-estado').textContent = (c.procesando || c.pend.length) ? 'escribiendo…' : 'en línea';
+    $('chat-estado').textContent = c.procesando ? 'escribiendo…' : 'en línea';
     habilitarChat(true);
   }
   function burbuja(rol, texto, iso, pending) {
@@ -274,7 +274,7 @@ button { font: inherit; cursor: pointer; border-radius: 8px; border: 0; padding:
       if (!e.existe) throw new Error('no-existe');
       (e.mensajes || []).forEach(function (m) { if (m.rol === 'huesped' && c.pend.length) c.pend.shift(); c.msgs.push({ rol: m.rol, texto: m.texto, at: m.at }); });
       if (e.ultimo_id) c.lastId = e.ultimo_id;
-      c.procesando = !!e.procesando; c.estado = e.estado;
+      c.procesando = !!(e.escribiendo || e.procesando); c.estado = e.estado;
       if (e.reserva) { c.asistente = e.reserva.asistente || c.asistente; c.gestora = e.reserva.gestora || c.gestora; }
       return e;
     });
